@@ -4,6 +4,9 @@ import type { NextRequest } from 'next/server';
 const publicPaths = ['/', '/login'];
 
 export function middleware(request: NextRequest) {
+  // Always allow access by just returning next()
+  return NextResponse.next();
+
   // For development, skip auth checks
   if (process.env.NODE_ENV === 'development') {
     return NextResponse.next();
