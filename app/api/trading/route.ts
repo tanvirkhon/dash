@@ -1,20 +1,10 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
+import { auth, sheets } from '@/lib/server/google-sheets-config';
 
 export async function GET() {
   try {
-    // Add NODE_OPTIONS for OpenSSL
-    process.env.NODE_OPTIONS = '--openssl-legacy-provider';
-
-    const jwt = new google.auth.JWT({
-      email: process.env.GOOGLE_CLIENT_EMAIL,
-      key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
-
-    const sheets = google.sheets('v4');
     const response = await sheets.spreadsheets.values.get({
-      auth: jwt,
       spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
       range: 'Sheet1!A:Z',
     });
@@ -34,4 +24,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-} 
+}
