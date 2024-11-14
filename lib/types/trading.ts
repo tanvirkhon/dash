@@ -1,29 +1,25 @@
 export interface Trade {
   timestamp: string;
   symbol: string;
-  closePrice: number;
   position: 'Long' | 'Short' | 'None';
   entryPrice: number;
+  closePrice: number;
   pnlPercentage: number;
   cumulativeROI: number;
   accountValue: number;
-  equity: number;
-  drawdown: number;
-  profitFactor: number;
-  sharpeRatio: number;
 }
 
 export interface TradingMetrics {
-  winRate: number;
-  totalTrades: number;
   accountValue: number;
-  stopLoss: number;
-  largestWin: number;
-  largestLoss: number;
+  totalTrades: number;
+  winRate: number;
   averageWin: number;
   averageLoss: number;
+  largestWin: number;
+  largestLoss: number;
   profitFactor: number;
   sharpeRatio: number;
+  stopLoss: number;
 }
 
 export interface TradingData {

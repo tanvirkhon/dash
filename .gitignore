@@ -36,3 +36,8 @@ next-env.d.ts
 
 # Netlify
 .netlify
+
+# environment variables
+.env
+.env.local
+.env.*.local

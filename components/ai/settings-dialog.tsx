@@ -1,24 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSettings } from "@/hooks/use-settings";
 
 interface AISettingsProps {
   open: boolean;
@@ -26,81 +12,73 @@ interface AISettingsProps {
 }
 
 export function AISettings({ open, onOpenChange }: AISettingsProps) {
-  const [openAIKey, setOpenAIKey] = useState("");
-  const [anthropicKey, setAnthropicKey] = useState("");
-  const [temperature, setTemperature] = useState("0.7");
+  const { settings, updateSettings } = useSettings();
 
-  // Load settings from localStorage on client side only
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setOpenAIKey(localStorage.getItem("openai_key") || "");
-      setAnthropicKey(localStorage.getItem("anthropic_key") || "");
-      setTemperature(localStorage.getItem("ai_temperature") || "0.7");
-    }
-  }, []);
-
-  const handleSave = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem("openai_key", openAIKey);
-      localStorage.setItem("anthropic_key", anthropicKey);
-      localStorage.setItem("ai_temperature", temperature);
-    }
-    toast.success("Settings saved successfully");
-    onOpenChange(false);
+  const handleProviderChange = (value: string) => {
+    updateSettings({ 
+      provider: value,
+      model: value === 'openai' ? 'gpt-4' : 'claude-3-sonnet-20240229'
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>AI Assistant Settings</DialogTitle>
+          <DialogTitle>AI Settings</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4">
           <div className="space-y-2">
-            <Label>OpenAI API Key</Label>
-            <Input
-              type="password"
-              placeholder="sk-..."
-              value={openAIKey}
-              onChange={(e) => setOpenAIKey(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Used for GPT-4 Turbo and GPT-4
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Anthropic API Key</Label>
-            <Input
-              type="password"
-              placeholder="sk-ant-..."
-              value={anthropicKey}
-              onChange={(e) => setAnthropicKey(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Used for Claude 3 Opus and Claude 3 Sonnet
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Temperature</Label>
-            <Select value={temperature} onValueChange={setTemperature}>
+            <Label>Provider</Label>
+            <Select
+              value={settings.provider}
+              onValueChange={handleProviderChange}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select temperature" />
+                <SelectValue placeholder="Select provider" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0">0 - Deterministic</SelectItem>
-                <SelectItem value="0.3">0.3 - Conservative</SelectItem>
-                <SelectItem value="0.7">0.7 - Balanced</SelectItem>
-                <SelectItem value="1">1.0 - Creative</SelectItem>
+                <SelectItem value="openai">K2 (OpenAI)</SelectItem>
+                <SelectItem value="claude">Claude</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>API Key</Label>
+            <Input
+              type="password"
+              value={settings.apiKey}
+              disabled
+              placeholder="API key is set via environment variables"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Model</Label>
+            <Select
+              value={settings.model}
+              onValueChange={(value) => updateSettings({ model: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select model" />
+              </SelectTrigger>
+              <SelectContent>
+                {settings.provider === 'openai' ? (
+                  <>
+                    <SelectItem value="gpt-4">GPT-4</SelectItem>
+                    <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                  </>
+                ) : (
+                  <>
+                    <SelectItem value="claude-3-sonnet-20240229">Claude 3 Sonnet</SelectItem>
+                    <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>Save Changes</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

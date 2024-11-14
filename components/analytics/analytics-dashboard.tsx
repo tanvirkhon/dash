@@ -3,7 +3,13 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Brain, TrendingUp, LineChart, BarChart2, RefreshCw } from "lucide-react";
+import {
+  Brain,
+  TrendingUp,
+  LineChart,
+  BarChart2,
+  RefreshCw,
+} from "lucide-react";
 import { fetchTradingData } from "@/lib/services/sheets";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { toast } from "sonner";
@@ -57,7 +63,9 @@ export default function AnalyticsDashboard() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h2 className="text-3xl font-bold tracking-tight">Analytics & Insights</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Analytics & Insights
+          </h2>
           <p className="text-muted-foreground">
             AI-powered analysis of your trading performance
           </p>
@@ -81,7 +89,9 @@ export default function AnalyticsDashboard() {
             <h3 className="text-sm font-medium">Sharpe Ratio</h3>
             <TrendingUp className="h-4 w-4 text-green-500" />
           </div>
-          <div className="text-2xl font-bold">{metrics?.sharpeRatio.toFixed(2)}</div>
+          <div className="text-2xl font-bold">
+            {metrics?.sharpeRatio.toFixed(2)}
+          </div>
           <p className="text-xs text-muted-foreground">
             Risk-adjusted return measure
           </p>
@@ -92,7 +102,9 @@ export default function AnalyticsDashboard() {
             <h3 className="text-sm font-medium">Profit Factor</h3>
             <LineChart className="h-4 w-4 text-blue-500" />
           </div>
-          <div className="text-2xl font-bold">{metrics?.profitFactor.toFixed(2)}</div>
+          <div className="text-2xl font-bold">
+            {metrics?.profitFactor.toFixed(2)}
+          </div>
           <p className="text-xs text-muted-foreground">
             Ratio of gross profit to gross loss
           </p>
@@ -103,7 +115,9 @@ export default function AnalyticsDashboard() {
             <h3 className="text-sm font-medium">Max Drawdown</h3>
             <BarChart2 className="h-4 w-4 text-purple-500" />
           </div>
-          <div className="text-2xl font-bold">-{(metrics?.largestLoss || 0).toFixed(2)}%</div>
+          <div className="text-2xl font-bold">
+            -{(metrics?.largestLoss || 0).toFixed(2)}%
+          </div>
           <p className="text-xs text-muted-foreground">
             Largest peak-to-trough decline
           </p>

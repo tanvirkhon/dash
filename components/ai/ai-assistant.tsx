@@ -31,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DebugEnv } from '@/components/debug-env';
 
 const EXAMPLE_PROMPTS = [
   {
@@ -313,6 +314,7 @@ export default function AIAssistant() {
       )}
 
       <AISettings open={showSettings} onOpenChange={setShowSettings} />
+      <DebugEnv />
     </div>
   );
 }

@@ -1,48 +1,63 @@
 "use client";
 
-import { useState } from "react";
-import { Message } from "@/lib/types/chat";
+import { useState, useCallback } from 'react';
+import { AIService, Message, AIProvider } from '@/services/ai-service';
+import { useSettings } from '@/hooks/use-settings';
 
 export function useChat() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Hello! I'm your AI trading assistant. How can I help you today?",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { settings } = useSettings();
 
-  const sendMessage = async (content: string) => {
-    // Add user message
-    const userMessage: Message = { role: "user", content };
-    setMessages((prev) => [...prev, userMessage]);
-    
-    setIsLoading(true);
-    
-    // TODO: Implement actual API call
-    // For now, simulate API response
-    setTimeout(() => {
-      const response: Message = {
-        role: "assistant",
-        content: "This is a placeholder response. API integration coming soon!",
-      };
-      setMessages((prev) => [...prev, response]);
+  const sendMessage = useCallback(async (content: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Add user message
+      const userMessage: Message = { role: 'user', content };
+      setMessages(prev => [...prev, userMessage]);
+
+      // Validate API key
+      if (!settings.apiKey) {
+        throw new Error('API key not configured');
+      }
+
+      // Initialize AI service with current settings
+      const aiService = new AIService({
+        provider: settings.provider as AIProvider,
+        apiKey: settings.apiKey,
+        model: settings.model,
+      });
+
+      // Get AI response
+      const response = await aiService.sendMessage([...messages, userMessage]);
+      
+      // Add AI response
+      const assistantMessage: Message = { role: 'assistant', content: response };
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred');
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'An error occurred while processing your request.'}`,
+      }]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
-  };
+    }
+  }, [messages, settings]);
 
-  const resetChat = () => {
-    setMessages([
-      {
-        role: "assistant",
-        content: "Hello! I'm your AI trading assistant. How can I help you today?",
-      },
-    ]);
-  };
+  const resetChat = useCallback(() => {
+    setMessages([]);
+    setError(null);
+  }, []);
 
   return {
     messages,
     isLoading,
+    error,
     sendMessage,
     resetChat,
   };
