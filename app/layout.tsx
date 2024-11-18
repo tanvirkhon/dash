@@ -1,17 +1,13 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { ThemeProvider } from '@/components/theme-provider';
-import { Toaster } from "@/components/ui/toaster";
-import { cn } from '@/lib/utils';
+"use client";
+
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { Toaster } from "sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Sidebar } from "@/components/layout/sidebar";
+import SupabaseProvider from "@/components/providers/supabase-provider";
 
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata: Metadata = {
-  title: 'NextGen AI Trading Dashboard',
-  description: 'Advanced AI-powered trading dashboard for automated trading systems',
-};
+const inter = Inter({ subsets: ["latin"] });
 
 export default function RootLayout({
   children,
@@ -19,23 +15,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full">
-      <body className={cn(inter.className, "h-full bg-background")}>
+    <html lang="en" suppressHydrationWarning>
+      <head />
+      <body className={inter.className}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex h-full">
-            <Sidebar />
-            <main className="flex-1 overflow-auto p-4">
-              <div className="mx-auto max-w-7xl">
+          <SupabaseProvider>
+            <div className="flex h-screen">
+              <Sidebar />
+              <main className="flex-1 overflow-y-auto">
                 {children}
-              </div>
-            </main>
-          </div>
-          <Toaster />
+                <Toaster position="bottom-right" />
+              </main>
+            </div>
+          </SupabaseProvider>
         </ThemeProvider>
       </body>
     </html>

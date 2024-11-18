@@ -1,108 +1,145 @@
-"use client";
-
 import { Card } from "@/components/ui/card";
 import { TradingMetrics } from "@/lib/types/trading";
+import { TradeData } from "@/lib/types/supabase";
 import { formatPercentage } from "@/lib/utils/format";
-import { TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { TrendingDown, TrendingUp, AlertTriangle, Activity } from "lucide-react";
 
 interface RiskMetricsProps {
   metrics: TradingMetrics;
+  trades: TradeData[];
 }
 
-interface MetricItemProps {
-  label: string;
-  value: string | number;
-  trend?: "up" | "down";
-  color?: string;
-}
+export function RiskMetrics({ metrics, trades }: RiskMetricsProps) {
+  // Calculate risk metrics
+  const recentTrades = trades.slice(0, 20); // Last 20 trades
+  const recentVolatility = calculateVolatility(recentTrades);
+  const maxDrawdown = calculateMaxDrawdown(trades);
+  const riskLevel = calculateRiskLevel(metrics, recentVolatility);
+  const profitFactor = metrics.profitFactor;
 
-function MetricItem({ label, value, trend, color }: MetricItemProps) {
   return (
-    <div className="flex flex-col gap-1">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <div className="flex items-center gap-2">
-        <p className={`text-xl font-bold ${color}`}>{value}</p>
-        {trend && (
-          trend === "up" ? 
-            <TrendingUp className="h-4 w-4 text-green-500" /> :
-            <TrendingDown className="h-4 w-4 text-red-500" />
-        )}
+    <div className="grid gap-4">
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Risk Level</span>
+          <div className="flex items-center gap-1">
+            <span className={`text-sm font-bold ${getRiskColor(riskLevel)}`}>
+              {riskLevel}
+            </span>
+            <AlertTriangle className={`h-4 w-4 ${getRiskColor(riskLevel)}`} />
+          </div>
+        </div>
+        <Progress value={getRiskPercentage(riskLevel)} className="h-2" />
+      </div>
+
+      <div className="grid gap-4">
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Profit Factor</p>
+              <p className="text-2xl font-bold">{profitFactor.toFixed(2)}</p>
+            </div>
+            {profitFactor >= 1.5 ? (
+              <TrendingUp className="h-8 w-8 text-green-500" />
+            ) : (
+              <TrendingDown className="h-8 w-8 text-red-500" />
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Ratio of gross profit to gross loss. Above 1.5 is considered good.
+          </p>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Max Drawdown</p>
+              <p className="text-2xl font-bold">{formatPercentage(maxDrawdown)}</p>
+            </div>
+            <Activity className="h-8 w-8 text-blue-500" />
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Largest peak-to-trough decline in account value.
+          </p>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Volatility (20-trade)</p>
+              <p className="text-2xl font-bold">{formatPercentage(recentVolatility)}</p>
+            </div>
+            <Activity className="h-8 w-8 text-yellow-500" />
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Standard deviation of returns over the last 20 trades.
+          </p>
+        </Card>
       </div>
     </div>
   );
 }
 
-export function RiskMetrics({ metrics }: RiskMetricsProps) {
-  // Calculate additional metrics
-  const riskRewardRatio = Math.abs(metrics.averageWin / metrics.averageLoss);
-  const successScore = (metrics.winRate / 100) * metrics.profitFactor;
+function calculateVolatility(trades: TradeData[]): number {
+  const returns = trades
+    .filter(t => t.pnl_percent !== null)
+    .map(t => t.pnl_percent || 0);
   
-  return (
-    <Card className="col-span-3 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-medium">Risk Management</h3>
-        <AlertTriangle className={`h-5 w-5 ${metrics.sharpeRatio > 1 ? 'text-green-500' : 'text-yellow-500'}`} />
-      </div>
-      
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-        <MetricItem
-          label="Win Rate"
-          value={`${metrics.winRate.toFixed(1)}%`}
-          trend={metrics.winRate > 50 ? "up" : "down"}
-        />
-        
-        <MetricItem
-          label="Profit Factor"
-          value={metrics.profitFactor.toFixed(2)}
-          trend={metrics.profitFactor > 1 ? "up" : "down"}
-        />
-        
-        <MetricItem
-          label="Sharpe Ratio"
-          value={metrics.sharpeRatio.toFixed(2)}
-          trend={metrics.sharpeRatio > 1 ? "up" : "down"}
-        />
-        
-        <MetricItem
-          label="Average Win"
-          value={formatPercentage(metrics.averageWin)}
-          color="text-green-500"
-          trend="up"
-        />
-        
-        <MetricItem
-          label="Average Loss"
-          value={formatPercentage(metrics.averageLoss)}
-          color="text-red-500"
-          trend="down"
-        />
-        
-        <MetricItem
-          label="Risk/Reward"
-          value={riskRewardRatio.toFixed(2)}
-          trend={riskRewardRatio > 1 ? "up" : "down"}
-        />
-        
-        <MetricItem
-          label="Largest Win"
-          value={formatPercentage(metrics.largestWin)}
-          color="text-green-500"
-          trend="up"
-        />
-        
-        <MetricItem
-          label="Largest Loss"
-          value={formatPercentage(metrics.largestLoss)}
-          color="text-red-500"
-          trend="down"
-        />
-        
-        <MetricItem
-          label="Success Score"
-          value={successScore.toFixed(2)}
-          trend={successScore > 1 ? "up" : "down"}
-        />
-      </div>
-    </Card>
-  );
+  if (returns.length === 0) return 0;
+  
+  const mean = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+  const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / returns.length;
+  return Math.sqrt(variance);
+}
+
+function calculateMaxDrawdown(trades: TradeData[]): number {
+  let peak = -Infinity;
+  let maxDrawdown = 0;
+  
+  trades.forEach(trade => {
+    if (trade.account_value > peak) {
+      peak = trade.account_value;
+    }
+    
+    const drawdown = ((peak - trade.account_value) / peak) * 100;
+    if (drawdown > maxDrawdown) {
+      maxDrawdown = drawdown;
+    }
+  });
+  
+  return maxDrawdown;
+}
+
+function calculateRiskLevel(metrics: TradingMetrics, volatility: number): string {
+  if (metrics.sharpeRatio > 2 && volatility < 5) return "Low";
+  if (metrics.sharpeRatio > 1 && volatility < 10) return "Moderate";
+  if (metrics.sharpeRatio < 0.5 || volatility > 15) return "High";
+  return "Moderate";
+}
+
+function getRiskColor(riskLevel: string): string {
+  switch (riskLevel) {
+    case "Low":
+      return "text-green-500";
+    case "Moderate":
+      return "text-yellow-500";
+    case "High":
+      return "text-red-500";
+    default:
+      return "text-muted-foreground";
+  }
+}
+
+function getRiskPercentage(riskLevel: string): number {
+  switch (riskLevel) {
+    case "Low":
+      return 33;
+    case "Moderate":
+      return 66;
+    case "High":
+      return 100;
+    default:
+      return 50;
+  }
 }

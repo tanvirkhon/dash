@@ -1,90 +1,99 @@
 import { NextResponse } from 'next/server';
-import { sheets } from '@/lib/server/google-sheets-config';
-import { Trade, TradingMetrics } from '@/lib/types/trading';
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/lib/types/supabase';
+
+// Initialize Supabase client
+const supabase = createClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_KEY!
+);
 
 export async function GET() {
   try {
-    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
-    if (!spreadsheetId) {
-      throw new Error('Spreadsheet ID not configured');
-    }
-    
-    const range = 'Sheet1!A2:R';
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-    });
+    // Fetch latest trades
+    const { data: tradeData, error: tradeError } = await supabase
+      .from('trade_data')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(100);
 
-    const rows = response.data.values;
-    if (!rows || rows.length === 0) {
-      throw new Error('No data found in spreadsheet');
+    if (tradeError) throw tradeError;
+    if (!tradeData || tradeData.length === 0) {
+      return NextResponse.json({ error: 'No trading data found' }, { status: 404 });
     }
 
-    // Debug logs
-    console.log('Total rows:', rows.length);
-    console.log('Last 5 rows:', rows.slice(-5));
+    // Fetch market data
+    const { data: marketData, error: marketError } = await supabase
+      .from('market_data')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(100);
 
-    // Get the latest row
-    const latestRow = rows[rows.length - 1];
-    console.log('Latest row:', latestRow);
-    console.log('Latest close price:', latestRow[2]); // Column C
-    console.log('Latest position:', latestRow[3]);    // Column D
-    console.log('Latest entry price:', latestRow[4]); // Column E
+    if (marketError) throw marketError;
 
-    // Find the most recent active position
-    const activePositionRow = [...rows].reverse().find(row => 
-      row[3]?.trim() === 'Long' || row[3]?.trim() === 'Short'
-    );
-    console.log('Active position row:', activePositionRow);
-
-    const currentState = {
-      position: latestRow[3]?.trim() || 'None',
-      entryPrice: parseFloat(latestRow[4]) || 0,
-      currentPrice: parseFloat(latestRow[2]) || 0, // Using latest close price
-      lastPnL: parseFloat(latestRow[5]) || 0,
-    };
-
-    console.log('Current state:', currentState);
-
-    const trades = rows.map((row) => ({
-      timestamp: new Date(row[0]).toISOString(),
-      symbol: 'SOL',
-      position: row[3]?.trim() || 'None',
-      entryPrice: parseFloat(row[4]) || 0,
-      closePrice: parseFloat(row[2]) || 0,
-      pnlPercentage: parseFloat(row[5]) || 0,
-      cumulativeROI: parseFloat(row[6]) || 0,
-      accountValue: parseFloat(row[9]) || 0,
-    }));
+    // Calculate metrics
+    const winningTrades = tradeData.filter(t => t.pnl_percent && t.pnl_percent > 0);
+    const losingTrades = tradeData.filter(t => t.pnl_percent && t.pnl_percent < 0);
+    const winRate = (winningTrades.length / tradeData.filter(t => t.pnl_percent !== null).length) * 100;
 
     const metrics = {
-      accountValue: parseFloat(rows[rows.length - 1][9]) || 0,
-      totalTrades: parseInt(rows[rows.length - 1][8]) || 0,
-      winRate: parseFloat(rows[rows.length - 1][7]) || 0,
-      averageWin: parseFloat(rows[rows.length - 1][13]) || 0,
-      averageLoss: parseFloat(rows[rows.length - 1][14]) || 0,
-      largestWin: parseFloat(rows[rows.length - 1][11]) || 0,
-      largestLoss: parseFloat(rows[rows.length - 1][12]) || 0,
-      profitFactor: parseFloat(rows[rows.length - 1][15]) || 0,
-      sharpeRatio: parseFloat(rows[rows.length - 1][16]) || 0,
-      stopLoss: 2.5,
+      accountValue: tradeData[0].account_value,
+      totalTrades: tradeData.filter(t => t.pnl_percent !== null).length,
+      winRate,
+      averageWin: winningTrades.length > 0
+        ? winningTrades.reduce((sum, t) => sum + (t.pnl_percent || 0), 0) / winningTrades.length
+        : 0,
+      averageLoss: losingTrades.length > 0
+        ? losingTrades.reduce((sum, t) => sum + (t.pnl_percent || 0), 0) / losingTrades.length
+        : 0,
+      largestWin: Math.max(...tradeData.filter(t => t.pnl_percent !== null).map(t => t.pnl_percent || 0)),
+      largestLoss: Math.min(...tradeData.filter(t => t.pnl_percent !== null).map(t => t.pnl_percent || 0)),
+      profitFactor: calculateProfitFactor(tradeData),
+      sharpeRatio: calculateSharpeRatio(tradeData),
+      stopLoss: tradeData[0].trailing_stop || 2.5,
     };
 
-    return NextResponse.json({ 
-      trades,
+    return NextResponse.json({
+      trades: tradeData,
+      marketData: marketData || [],
       metrics,
-      currentState,
     });
 
   } catch (error) {
-    console.error('Full error details:', error);
+    console.error('Error fetching trading data:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch trading data', 
-        details: error instanceof Error ? error.message : 'Unknown error',
-        errorObject: error
+      {
+        error: 'Failed to fetch trading data',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
   }
-} 
+}
+
+function calculateProfitFactor(trades: Database['public']['Tables']['trade_data']['Row'][]): number {
+  const totalProfit = trades
+    .filter(t => t.pnl_percent && t.pnl_percent > 0)
+    .reduce((sum, t) => sum + (t.pnl_percent || 0), 0);
+  
+  const totalLoss = Math.abs(
+    trades
+      .filter(t => t.pnl_percent && t.pnl_percent < 0)
+      .reduce((sum, t) => sum + (t.pnl_percent || 0), 0)
+  );
+
+  return totalLoss === 0 ? totalProfit : totalProfit / totalLoss;
+}
+
+function calculateSharpeRatio(trades: Database['public']['Tables']['trade_data']['Row'][]): number {
+  const validTrades = trades.filter(t => t.pnl_percent !== null);
+  if (validTrades.length === 0) return 0;
+
+  const returns = validTrades.map(t => t.pnl_percent || 0);
+  const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+  
+  const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+  const stdDev = Math.sqrt(variance);
+  
+  return stdDev === 0 ? 0 : (avgReturn / stdDev) * Math.sqrt(252); // Annualized
+}
