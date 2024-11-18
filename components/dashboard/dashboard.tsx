@@ -60,6 +60,69 @@ interface ApiResponse {
   metrics: Metrics;
 }
 
+function calculateTradingPerformance(trades: Trade[]): { value: number; description: string } {
+  if (!trades.length) return { value: 0, description: 'No trades' };
+
+  let totalPnL = 0;
+  let winningTrades = 0;
+  let consecutiveWins = 0;
+  let maxConsecutiveWins = 0;
+
+  trades.forEach((trade, index) => {
+    if (trade.pnl) {
+      totalPnL += trade.pnl;
+      if (trade.pnl > 0) {
+        winningTrades++;
+        consecutiveWins++;
+        maxConsecutiveWins = Math.max(maxConsecutiveWins, consecutiveWins);
+      } else {
+        consecutiveWins = 0;
+      }
+    }
+  });
+
+  const winRate = (winningTrades / trades.length) * 100;
+  const averagePnL = totalPnL / trades.length;
+
+  return {
+    value: averagePnL * maxConsecutiveWins,
+    description: `Win Rate: ${winRate.toFixed(1)}%`
+  };
+}
+
+function calculateRiskMetrics(trades: Trade[]): { value: number; maxDrawdown: number } {
+  if (!trades.length) return { value: 0, maxDrawdown: 0 };
+
+  let balance = 100; // Starting balance
+  let peak = balance;
+  let maxDrawdown = 0;
+  let totalRisk = 0;
+
+  trades.forEach(trade => {
+    if (trade.pnl) {
+      balance *= (1 + trade.pnl / 100);
+      
+      if (balance > peak) {
+        peak = balance;
+      }
+      
+      const currentDrawdown = ((peak - balance) / peak) * 100;
+      maxDrawdown = Math.max(maxDrawdown, currentDrawdown);
+
+      if (trade.pnl < 0) {
+        totalRisk += Math.abs(trade.pnl);
+      }
+    }
+  });
+
+  const averageRisk = totalRisk / trades.length;
+
+  return {
+    value: averageRisk,
+    maxDrawdown: maxDrawdown
+  };
+}
+
 function StatCard({ 
   title, 
   value, 
@@ -271,6 +334,28 @@ export default function Dashboard() {
           icon={TrendingDown}
           trend={-1}
           prefix="-"
+          suffix="%"
+        />
+      </div>
+
+      {/* Trading Performance */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Trading Performance"
+          value={calculateTradingPerformance(data?.trades || []).value.toFixed(2)}
+          subValue={`${calculateTradingPerformance(data?.trades || []).description}`}
+          icon={TrendingUp}
+          trend={1}
+          prefix="+"
+          suffix="%"
+        />
+
+        <StatCard
+          title="Risk Exposure"
+          value={calculateRiskMetrics(data?.trades || []).value.toFixed(2)}
+          subValue={`Max Drawdown: ${calculateRiskMetrics(data?.trades || []).maxDrawdown.toFixed(2)}%`}
+          icon={AlertTriangle}
+          trend={-1}
           suffix="%"
         />
       </div>
